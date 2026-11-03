@@ -1,0 +1,9 @@
+.DS_Store
+.env
+.env.*
+node_modules/
+__pycache__/
+验证结果.json
+*存档*.json
+backups/
+*.log

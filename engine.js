@@ -1,0 +1,53 @@
+(function(G){'use strict';
+const VERSION=1;
+const TYPES=[
+{id:'rotate',dim:'空间',name:'平面旋转',desc:'在方向变化中保持形状关系',lesson:'先选一个不对称锚点，再检查顺序。',program:'空间旋转基础，不等同神龙摆尾的长条折叠。'},
+{id:'detail',dim:'观察',name:'细节辨识',desc:'逐区扫描，定位唯一不同',lesson:'固定扫描顺序，少依赖整体印象。',program:'视觉搜索基础；未模拟叶雕或大型碎片墙。'},
+{id:'mod9',dim:'观察',name:'模九叠色',desc:'把颜色叠加转成模九计算',lesson:'先还原编号，再逐格相加取余。',program:'闪光迷图的小型规则改编；不是20×20、12片自由拼合。'},
+{id:'latin',dim:'逻辑',name:'拉丁方补全',desc:'利用行列约束排除候选',lesson:'先找候选最少的格，交叉检查行列。',program:'九鼎之局的约束基础；未模拟2×2旋钮操作。'},
+{id:'gcd',dim:'逻辑',name:'公约数路径',desc:'用因数连接不重复的全路径',lesson:'先识别公共因数，再管理端点和死角。',program:'数阵迷踪的小盘面规则改编。'},
+{id:'color',dim:'记忆',name:'颜色位置绑定',desc:'把颜色与坐标一同编码',lesson:'按行分组，记“坐标—颜色”，避免只记颜色数量。',program:'空间视觉工作记忆基础，非斗转星移3D灯阵复现。'},
+{id:'digits',dim:'记忆',name:'数字串回忆',desc:'分组编码后按序重建',lesson:'保持分组节奏，不因漏一位放弃后半段。',program:'序列记忆基础，非节目特定项目。'},
+{id:'arithmetic',dim:'计算',name:'稳定心算',desc:'进位、借位与乘法分解',lesson:'保留中间值，交卷前独立检查个位。',program:'心算基础；未实现高速闪算抢答赛制。'},
+{id:'slide',dim:'规划',name:'滑块预演',desc:'先规划短路径，再稳定执行',lesson:'先看空位路线，避免刚走完又退回。',program:'方形单空位推盘；与六边双空位速滑不同。'}];
+const LEVELS=['基础','进阶','挑战'];const DIMS=['空间','观察','逻辑','记忆','计算','规划'];
+function rng(seed){let a=seed>>>0;return()=>{a+=0x6D2B79F5;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
+function hash(s){let h=2166136261;for(let c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
+function shuffle(a,r){a=a.slice();for(let i=a.length-1;i>0;i--){let j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function ri(r,a,b){return a+Math.floor(r()*(b-a+1))}
+function parse(id){let m=/^v1-([a-z0-9]+)-([123])-(\d{2})$/.exec(id);if(!m||!TYPES.some(t=>t.id===m[1])||+m[3]<1||+m[3]>40)throw Error('题目编号无效');return {type:m[1],level:+m[2],index:+m[3]}}
+const BANK=TYPES.flatMap(t=>[1,2,3].flatMap(l=>Array.from({length:40},(_,i)=>`v1-${t.id}-${l}-${String(i+1).padStart(2,'0')}`)));
+function rot(a,n){let b=a.slice();for(let y=0;y<n;y++)for(let x=0;x<n;x++)b[x*n+n-1-y]=a[y*n+x];return b}
+function gcd(a,b){while(b)[a,b]=[b,a%b];return a}
+function adjacent(a,b,n){return Math.abs(a%n-b%n)+Math.abs(Math.floor(a/n)-Math.floor(b/n))===1}
+function neighbors(i,n){return [i-n,i+n,i%n?i-1:-1,i%n<n-1?i+1:-1].filter(x=>x>=0&&x<n*n)}
+const pools=new Map();
+function slidePool(n,max){let key=n+'-'+max;if(pools.has(key))return pools.get(key);let goal=Array.from({length:n*n},(_,i)=>i===n*n-1?0:i+1),g=goal.map(x=>x.toString(16)).join(''),distance=new Map([[g,0]]),queue=[g],byDepth=Array.from({length:max+1},()=>[]);byDepth[0].push(g);for(let i=0;i<queue.length;i++){let code=queue[i],d=distance.get(code);if(d>=max)continue;let z=code.indexOf('0');for(let next of neighbors(z,n)){let a=code.split('');[a[z],a[next]]=[a[next],a[z]];let s=a.join('');if(!distance.has(s)){distance.set(s,d+1);queue.push(s);byDepth[d+1].push(s)}}}let result={distance,byDepth,goal};pools.set(key,result);return result}
+const cache=new Map();
+function question(id){if(cache.has(id))return cache.get(id);const p=parse(id),{type,level:l,index}=p,r=rng(hash(id)),meta=TYPES.find(t=>t.id===type);let q={id,...p,dim:meta.dim,name:meta.name,program:meta.program};
+if(type==='rotate'){let n=l+3,a;do{a=Array.from({length:n*n},()=>r()<.38?1:0)}while(new Set([a.join(''),rot(a,n).join(''),rot(rot(a,n),n).join(''),rot(rot(rot(a,n),n),n).join('')]).size<4);let turns=ri(r,1,3),right=a;for(let i=0;i<turns;i++)right=rot(right,n);let bad=[];while(bad.length<3){let b=right.slice(),i=ri(r,0,b.length-1);b[i]^=1;if(b.join('')!==right.join('')&&!bad.some(x=>x.join('')===b.join('')))bad.push(b)}let opts=shuffle([right,...bad],r);Object.assign(q,{n,target:a,turns,options:opts,solution:opts.findIndex(x=>x.join('')===right.join('')),prompt:`将原图顺时针旋转 ${turns*90}°，选择正确结果。`,explain:`顺时针90°时，第r行第c列移动到第c行第${n+1}−r列。本题连续旋转${turns}次。选择一个边角锚点，再逐行核对。`})}
+else if(type==='detail'){let n=l+3,target=Array.from({length:n*n},()=>ri(r,1,4)),solution=ri(r,0,n*n-1),other=target.slice();other[solution]=target[solution]%4+1;Object.assign(q,{n,target,other,solution,prompt:'对照原图与下图，点出下图中唯一不同的格子。',explain:`不同点在第${Math.floor(solution/n)+1}行第${solution%n+1}列。按行或按列扫描，比来回跳着看更容易确认遗漏。`})}
+else if(type==='mod9'){let n=l===1?2:l===2?3:4,a=Array.from({length:n*n},()=>ri(r,0,8)),b=Array.from({length:n*n},()=>ri(r,0,8)),sum=a.map((x,i)=>(x+b[i])%9),bad=[];while(bad.length<3){let c=b.slice(),i=ri(r,0,c.length-1);c[i]=(c[i]+ri(r,1,8))%9;if(!bad.some(x=>x.join('')===c.join('')))bad.push(c)}let opts=shuffle([b,...bad],r);Object.assign(q,{n,a,sum,options:opts,solution:opts.findIndex(x=>x.join('')===b.join('')),prompt:'已知拼片A和叠色结果，选择缺失的拼片B。每格按 (A+B) mod 9 叠加。',explain:'逐格计算 B = (目标 − A + 9) mod 9。先核对候选最有差异的格，再检查其他格；颜色编号始终和颜色同时显示。'})}
+else if(type==='latin'){let n=l+2,rows=shuffle(Array.from({length:n},(_,i)=>i),r),cols=shuffle(Array.from({length:n},(_,i)=>i),r),symbols=shuffle(Array.from({length:n},(_,i)=>i+1),r),solution=rows.flatMap(y=>cols.map(x=>symbols[(x+y)%n])),hide=shuffle(Array.from({length:n*n},(_,i)=>i),r).slice(0,Math.floor(n*n*(.35+.1*l))),clues=solution.map((x,i)=>hide.includes(i)?0:x);Object.assign(q,{n,clues,solution,prompt:`补全${n}×${n}拉丁方，每行每列都恰好包含1–${n}。已给的数字不能改；所有满足规则的答案都接受。`,explain:'先找某行缺少的数字，再与对应列交叉排除。这里检查行列规则，不要求和生成器的示例解相同；下方给出一组合法示例。'})}
+else if(type==='gcd'){let n=l+2,path=Array.from({length:n},(_,y)=>Array.from({length:n},(_,x)=>y*n+(y%2?n-1-x:x))).flat();for(let t=0;t<ri(r,0,3);t++)path=path.map(i=>(i%n)*n+n-1-Math.floor(i/n));if(r()<.5)path=path.map(i=>Math.floor(i/n)*n+n-1-i%n);let primes=[2,3,5,7,11],edges=Array.from({length:n*n-1},()=>primes[ri(r,0,l+1)]),values=Array(n*n);path.forEach((cell,i)=>values[cell]=(edges[i-1]||1)*(edges[i]||1));Object.assign(q,{n,values,solution:path,prompt:'点格子连出一条走遍所有格的路径。每步只能上下左右相邻，且两个数字的最大公约数必须大于1；格子不能重复。',explain:'先给数字标记2、3、5等公因数。尝试从连接少的端点出发，避免提前封住角落。示例路径不是唯一限制，所有合法全路径都接受。'})}
+else if(type==='color'){let n=l+2,k=[4,7,10][l-1],cells=Array(n*n).fill(0);shuffle(Array.from({length:n*n},(_,i)=>i),r).slice(0,k).forEach(i=>cells[i]=ri(r,1,3));Object.assign(q,{n,solution:cells,seconds:[6,9,12][l-1],prompt:`先记住${n}×${n}方格中的颜色和位置；遮住后还原。0空、1红、2黄、3蓝。`,explain:'把每一行编码为“列号+颜色”，例如“第2列红、第4列蓝”。先恢复确定的坐标，再处理不确定的格。计分为 (填对的有色格−填错的有色格)÷原图有色格数，最低0。'})}
+else if(type==='digits'){let k=[8,12,18][l-1],digits=Array.from({length:k},()=>String(ri(r,0,9))).join('');Object.assign(q,{solution:digits,seconds:[6,8,12][l-1],prompt:`记住这${k}位数字，遮住后按原顺序输入。保留开头的0。`,explain:'按3或4位分组。漏一位仍继续写后面的分组。部分分按编辑距离计算，避免漏一位导致后面全部错位扣分。'})}
+else if(type==='arithmetic'){let a,b,c,op=ri(r,0,2),text,solution;if(l===1){a=ri(r,100,799);b=ri(r,100,799);if(op===0){text=`${a} + ${b}`;solution=a+b}else{text=`${Math.max(a,b)} − ${Math.min(a,b)}`;solution=Math.abs(a-b)}}else if(l===2){a=ri(r,12,79);b=ri(r,12,49);if(op===0){text=`${a} × ${b}`;solution=a*b}else{a=ri(r,200,999);b=ri(r,100,499);c=ri(r,100,499);text=`${a} + ${b} − ${c}`;solution=a+b-c}}else{a=ri(r,101,899);b=ri(r,12,79);text=`${a} × ${b}`;solution=a*b}Object.assign(q,{text,solution,prompt:'请心算并输入结果。提交前，用另一种方式核对个位或数量级。',explain:text.includes('×')?'可将乘数拆成十位和个位，分别相乘再相加。核对结果个位应等于两个乘数个位乘积的个位。':'分离百位、十位、个位，明确每一次进位或借位。核对个位只能筛出部分错误，不是完整正确性的证明。'})}
+else if(type==='slide'){let n=l===3?4:3,min=l===1?6:l===2?12:8,max=l===1?8:l===2?14:10,pool=slidePool(n,max),codes=shuffle(pool.byDepth.slice(min,max+1).flat(),rng(7919+l)),code=codes[index-1];let board=code.split('').map(x=>parseInt(x,16));Object.assign(q,{n,start:board,solution:pool.goal,optimal:pool.distance.get(code),prompt:`把${n}×${n}推盘还原为1到${n*n-1}，空位留在右下角。只能移动空位上下左右的相邻块。`,explain:`本题最短${pool.distance.get(code)}步，由从终局出发的广度优先搜索求得。先追求完成，再观察是否反复撤回；重置不抹掉累计步数。`})}
+cache.set(id,Object.freeze(q));return q}
+function normalize(v){return String(v??'').normalize('NFKC').replace(/[，,\s]/g,'').replace(/[−–]/g,'-')}
+function distance(a,b){let dp=Array.from({length:b.length+1},(_,i)=>i);for(let i=1;i<=a.length;i++){let last=dp[0];dp[0]=i;for(let j=1;j<=b.length;j++){let old=dp[j];dp[j]=Math.min(dp[j]+1,dp[j-1]+1,last+(a[i-1]===b[j-1]?0:1));last=old}}return dp[b.length]}
+function grade(q,answer){let ok=false,part=0,detail='',a=answer;
+if(['rotate','mod9','detail'].includes(q.type)){ok=Number.isInteger(a)&&a===q.solution;part=ok?1:0}
+else if(q.type==='arithmetic'){let x=normalize(a);ok=/^-?\d+$/.test(x)&&Number(x)===q.solution;part=ok?1:0}
+else if(q.type==='digits'){let x=normalize(a);ok=x===q.solution;part=Math.max(0,1-distance(q.solution,x)/q.solution.length);detail=`编辑距离 ${distance(q.solution,x)}`}
+else if(q.type==='color'){a=Array.isArray(a)?a:[];let good=0,bad=0,total=q.solution.filter(Boolean).length;q.solution.forEach((x,i)=>{if(a[i]){if(x===a[i])good++;else bad++}});part=Math.max(0,(good-bad)/total);ok=q.solution.every((x,i)=>x===(a[i]||0));detail=`正确有色格 ${good}，填错 ${bad}，原图有色格 ${total}`}
+else if(q.type==='latin'){a=Array.isArray(a)?a:[];let vals=q.clues.map((x,i)=>x||Number(normalize(a[i])));ok=vals.every(x=>Number.isInteger(x)&&x>=1&&x<=q.n)&&Array.from({length:q.n},(_,i)=>new Set(vals.slice(i*q.n,(i+1)*q.n)).size===q.n&&new Set(Array.from({length:q.n},(_,j)=>vals[j*q.n+i])).size===q.n).every(Boolean);part=ok?1:0;detail='只按最终行列约束判分，不按某一个示例解逐格扣分'}
+else if(q.type==='gcd'){a=Array.isArray(a)?a:[];ok=a.length===q.n*q.n&&new Set(a).size===a.length&&a.every((v,i)=>Number.isInteger(v)&&v>=0&&v<q.n*q.n&&(i===0||adjacent(a[i-1],v,q.n)&&gcd(q.values[a[i-1]],q.values[v])>1));part=ok?1:0;detail=`路径长度 ${a.length}/${q.n*q.n}`}
+else if(q.type==='slide'){let b=a&&Array.isArray(a.board)?a.board:[];ok=b.length===q.solution.length&&b.every((x,i)=>x===q.solution[i]);part=ok?1:0;detail=`完成率 ${ok?'100%':'未完成'}；累计 ${a?.moves||0} 步，最短 ${q.optimal} 步。正确率只看完成；步数另外记录。`}
+return {ok,part:Math.round(part*10000)/10000,detail}}
+function initial(q){return q.type==='slide'?{board:q.start.slice(),moves:0,trail:[]}:['color','latin','gcd'].includes(q.type)?q.type==='gcd'?[]:Array(q.n*q.n).fill(q.type==='latin'?'':0):['rotate','mod9','detail'].includes(q.type)?null:''}
+function select({type,dim,level=1,count=5,seen=[],seed=Date.now()}){let candidates=BANK.filter(id=>{let p=parse(id);return (!type||p.type===type)&&(!dim||TYPES.find(x=>x.id===p.type).dim===dim)&&p.level===level});let fresh=candidates.filter(id=>!seen.includes(id));return shuffle(fresh.length>=count?fresh:candidates,rng(seed)).slice(0,count)}
+function assessment(seen=[],seed=Date.now()){return DIMS.flatMap(dim=>{let ts=TYPES.filter(t=>t.dim===dim);return ts.length===1?select({type:ts[0].id,level:1,count:2,seen,seed:seed+hash(dim)}):ts.map(t=>select({type:t.id,level:1,count:1,seen,seed:seed+hash(t.id)})[0])})}
+G.BrainEngine={VERSION,TYPES,LEVELS,DIMS,BANK,question,parse,grade,initial,select,assessment,rot,gcd,neighbors,normalize,hash,slidePool};
+})(globalThis);
