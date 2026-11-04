@@ -121,6 +121,7 @@ BrainDragonUI.init({render,toast});
 DragonPathUI.init({store:S,navigate,render,toast});
 CurriculumUI.init({store:S,navigate,render,toast});
 CoachUI.init({store:S,render,toast});
+VisualIntro.init({store:S,render,toast});
 BrainArenaUI.init({store:S,navigate,render,toast,exportBackup:downloadBackup});
 BrainAcademyUI.init({store:S,navigate,render,toast,sessionRows});
 render();
